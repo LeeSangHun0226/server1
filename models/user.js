@@ -10,6 +10,7 @@ const User = new Schema({
   id: String,
   password: String,
   mail: String,
+  token: String,
 // -------------프로필-----------------
   username: String,
   team: String,

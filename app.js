@@ -10,7 +10,7 @@ const path = require('path');
 
 // const config = require('./config/config');
 const multer = require('multer');
-const morgan = require('morgan');
+const morgan = require('morgan'); // express 서버에서 발생하는 이벤트들을 기록
 
 const bodyParser = require('body-parser');
 
@@ -19,38 +19,40 @@ const session = require('express-session');
 
 const api = require('./routes/index');
 
+// ---------------------LOAD THE CONFIG---------------------------
+const config = require('./config/config')
+const port = process.env.PORT || 4000;
+
 // ---------------------express server---------------------------
 const app = express();
-const port = 4000;
+
 app.use(cors());
 // ------------- 서버 변수 설정 및 static으로 public 폴더 설정  ----------- //
 
 // app.set('port', config.server_port);
 app.use('../client/client-side/public', express.static(path.join(__dirname, 'public')));
 
-app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 
 // --------------------print the request log on console---------------- //
-app.use(morgan());
+app.use(morgan('dev'));
+
+// --------------------set the secret key variable for jwt---------------- //
+app.set('jwt-secret', config.secret);
 
 // ---------------------mongodb connection----------------------------- //
-
+mongoose.connect(config.mongodbUri);
 const db = mongoose.connection;
 db.on('error', console.error);
 db.once('open', () => { console.log('Connected to mogod server'); });
 
-// mongoose.connect(config.db_url);
-// mongoose.connect('mongodb://sanghun:minho@ec2-52-78-89-87.ap-northeast-2.compute.amazonaws.com/steampack');
-mongoose.connect('localhost:27017/steampack');
-
 // ---------------------use session----------------------------- //
-// https://velopert.com/406
-app.use(session({
-  secret: 'secret',
-  resave: false,
-  saveUninitialized: true,
-}));
+// app.use(session({
+//   secret: 'secret',
+//   resave: false,
+//   saveUninitialized: true,
+// }));
 
 // ---------------------use imagme----------------------------- //
 // app.use(multer({

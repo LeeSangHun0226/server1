@@ -1,13 +1,16 @@
 const express = require('express');
+const jwt = require('jsonwebtoken');
 const User = require('../models/user');
 const TokenManager = require('../TokenManager');
+
 
 const router = express.Router();
 
 /*
   <회원가입>
   ACCOUNT SIGNUP: POST /api/account/signup
-  CODY SAMPLE : { "id" : "test" , "password": "test", "mail" : "test"}
+  CODY SAMPLE :
+    { "id" : "test" , "password": "test", "mail" : "test", }
   ERROR CODES:
           1. BAD id
           2. BAD password
@@ -82,7 +85,10 @@ router.post('/signup', (req, res) => {
 */
 
 router.post('/login', (req, res) => {
-  // LOGIN FAILED
+
+  const secret = req.app.get('jwt-secret');
+
+  // 1. LOGIN FAILED
   if (typeof req.body.password !== 'string') {
     return res.status(401).json({
       error: 'LOGIN FAILED',
@@ -90,24 +96,81 @@ router.post('/login', (req, res) => {
     });
   }
 
-  User.findOne({ id: req.body.id }, (err, user) => {
-    if (err) throw err;
+  const user = new User({
+    id: req.body.id,
+    password: req.body.password,
+  });
 
+  const check = (user) => {
     if (!user) {
-      return res.status(401).json({
-        error: 'LOGIN FAILED',
-        code: 1,
-      });
-    }
+      throw new Error('LOGIN FAILED')
+    } else {
+      if (user.verify(password)) {
+        const promise = new Promise((resolve, reject) => {
+          jwt.sign(
+            {
+              _id: user._id,
+              id: user.id,
+            },
+            secret,
+            {
+              expiresIn: '7d',
+              issuer: 'steampack',
+              subject: 'userInfo',
+            },
+            (err, token) => {
+              if (err) reject(err);
+              resolve(token);
+            });
+        });
+        return promise;
+      }
 
-    if (!user.validateHash(req.body.password)) {
-      return res.status(401).json({
-        error: 'LOGIN FAILED',
-        code: 1,
-      });
-    }
+        // respond the token
+      const respond = (token) => {
+        res.json({
+          message: 'logged in successfully',
+          token,
+        });
+      };
 
-    const token = TokenManager.generateToken(user.id);
+        // error occured
+      const onError = (error) => {
+        res.status(403).json({
+          message: error.message,
+        });
+      };
+
+        // find the user
+      User.findOneByUsername(id)
+        .then(check)
+        .then(respond)
+        .catch(onError);
+    }
+  };
+});
+
+//   //
+//   User.findOne({ id: req.body.id }, (err, user) => {
+//     if (err) throw err;
+//
+//     if (!user) {
+//       return res.status(401).json({
+//         error: 'LOGIN FAILED',
+//         code: 1,
+//       });
+//     }
+//
+//     if (!user.validateHash(req.body.password)) {
+//       return res.status(401).json({
+//         error: 'LOGIN FAILED',
+//         code: 1,
+//       });
+//     }
+//
+//
+// });
+    // const token = TokenManager.generateToken(user.id);
 
     // const session = req.session;
     // session.loginInfo = {
@@ -115,13 +178,13 @@ router.post('/login', (req, res) => {
     //   id: user.id,
     // };
     // console.log(req.session);
-    console.log('222222222222           ', token);
-    return res.json({
-      success: true,
-      token,
-    });
-  });
-});
+//     console.log('222222222222           ', token);
+//     return res.json({
+//       success: true,
+//       token,
+//     });
+//   });
+// });
 
 /*
   <토큰 확인> 세션(x)
@@ -172,6 +235,7 @@ router.get('/getinfo', (req, res) => {
 */
 
 router.post('/logout', (req, res) => {
+  // req.session.destroy((err) => { if (err) throw err; });
   req.session.destroy((err) => { if (err) throw err; });
   return res.json({ success: true });
 });
